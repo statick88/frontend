@@ -20,3 +20,6 @@
 # System files
 .DS_Store
 Thumbs.db
+
+# Local AI onboarding instructions; share separately, never commit.
+/AGENTS.md
