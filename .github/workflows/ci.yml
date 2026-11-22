@@ -1,0 +1,52 @@
+name: Continuous integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Validate Compose configuration
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml config --quiet
+      - name: Verify development Compose contract
+        run: python3 tests/test_compose_contract.py
+      - name: Run containerized checks
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml run --build --rm --no-deps frontend-check
+
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT: frontend-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      FRONTEND_PORT: 14200
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Validate Compose configuration
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml -p "$COMPOSE_PROJECT" config --quiet
+      - name: Start frontend
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml -p "$COMPOSE_PROJECT" up --build --wait --wait-timeout 180 frontend
+      - name: Smoke test Angular app shell
+        run: curl --fail --silent --show-error --retry 10 --retry-connrefused http://127.0.0.1:$FRONTEND_PORT/ | grep --fixed-strings '<app-root'
+      - name: Show frontend logs after failure
+        if: failure()
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml -p "$COMPOSE_PROJECT" logs --no-color --tail 80 frontend
+      - name: Stop frontend
+        if: always()
+        run: COMPOSE_DISABLE_ENV_FILE=1 docker compose -f compose.yaml -p "$COMPOSE_PROJECT" down --remove-orphans

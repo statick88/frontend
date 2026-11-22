@@ -1,0 +1,25 @@
+# Build output
+/dist
+/out-tsc
+
+# Dependencies
+/node_modules
+
+# Angular cache
+/.angular/cache
+
+# Test output
+/coverage
+
+# Editors
+/.idea
+/.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local AI onboarding instructions; share separately, never commit.
+/AGENTS.md
